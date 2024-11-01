@@ -23,13 +23,27 @@ class Dot:
     def __repr__(self):
         return f"Dot(ID={self.ID}, x={self.x}, y={self.y})"
 
+# def discretize_platform(L, W, grid_size):
+#     dots = []
+#     ID = 0
+#     for x in range(0, L+1, grid_size):
+#         for y in range(0, W+1, grid_size):
+#             dots.append(Dot(ID, x, y))
+#             ID += 1
+#     return dots
+
+#修改后增添了浮点数支持
 def discretize_platform(L, W, grid_size):
     dots = []
     ID = 0
-    for x in range(0, L+1, grid_size):
-        for y in range(0, W+1, grid_size):
+    x = 0.0
+    while x <= L:
+        y = 0.0
+        while y <= W:
             dots.append(Dot(ID, x, y))
             ID += 1
+            y = round(y + grid_size, 10)  # 使用round确保浮点运算精度
+        x = round(x + grid_size, 10)
     return dots
 
 def discretize_bin(l, w, grid_size):
@@ -125,10 +139,19 @@ def get_Gamma_d(d, inner_fit_polygons):
     return Gamma_d
 
 def visualize_bin_packing(dots, bins, gamma, L, W, solver):
+    '''
+    :param dots:
+    :param bins:
+    :param gamma:
+    :param L:
+    :param W:
+    :param solver:
+    :return:
+    '''
     fig, ax = plt.subplots(1, figsize=(10, 6))
 
     # Define a color map for bins
-    colors = cm.get_cmap('tab10', len(bins))  # 'tab10' is a color map with 10 distinct colors
+    colors = plt.get_cmap('tab20', len(bins))  # 'tab10' is a color map with 10 distinct colors
 
     # Draw platform boundaries
     ax.set_xlim(0, L)
@@ -172,20 +195,25 @@ def visualize_bin_packing(dots, bins, gamma, L, W, solver):
 
     plt.grid(True)
     plt.show()
-    
-def check_feasi(L,W,grid_size,bins):
-    # # Define the platform dimensions and grid size
-    # L = 5
-    # W = 5
-    # grid_size = 1   # the size of the grid
-    
-    # # Define bins as tuples of (length, width)
-    # bins = [
-    #     (4, 3),  # Bin 0
-    #     (2, 2),  # Bin 1
-    #     (3, 2),  # Bin 2
-    # ]
-    
+
+def check_is_times(L, W, grid_size):
+    errors = []
+    if L % grid_size != 0:
+        errors.append(f"Error: L ({L}) is not an integer multiple of grid_size ({grid_size}).")
+    if W % grid_size != 0:
+        errors.append(f"Error: W ({W}) is not an integer multiple of grid_size ({grid_size}).")
+    if errors:
+        raise ValueError("\n".join(errors))
+
+def check_feasi(L, W, grid_size, bins):
+    '''
+    :param L：托盘的长度
+    :param W: 托盘的宽度
+    :param grid_size: 网格的尺寸
+    :param bins: 物体的尺寸
+    :return:IsFeasible：是否可行, PackingSol：物体的放置方式
+    '''
+    check_is_times(L,W,grid_size)
     # Define set of Jobs
     J = [j for j in range(len(bins))]
     
@@ -246,6 +274,7 @@ def check_feasi(L,W,grid_size,bins):
     
     # Obtain the no-fit polygons
     NFPs = {}
+
     for d in dots:
         for j in Gamma[d.ID]:
             for jj in J:
@@ -256,8 +285,7 @@ def check_feasi(L,W,grid_size,bins):
                     w_jj = bins[jj][1]
                     NFPs[j,d.ID,jj] = get_no_fit_polygon(dots, l_j, w_j, d, l_jj, w_jj)
     
-    
-    
+
     # Add constraints to ensure that if bin j is placed at d, then:
         # for any bin jj, it cannot be placed at dot dd if dd is included in the no-fit polygon set of NFP^d_j,jj
     for [j,d,jj], nfp in NFPs.items():
@@ -267,17 +295,7 @@ def check_feasi(L,W,grid_size,bins):
     solver = cp_model.CpSolver()
     status = solver.solve(model)
     
-    # if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
-    #     print("Solution:")
-    #     for d in dots:
-    #         print("Dot", d.ID)
-    #         for s in status_list:
-    #             if solver.value(gamma[d.ID, s]) == 1:
-    #                 print("Dot", d.ID, "x", d.x, "y", d.y, "is placed with bin ", s, ".")
-    #         print()
-    # else:
-    #     print("No feasible solution found !")
-    
+
     PackingSol = {}   #Dictionary of part coordinates
     if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
         for d in dots:
@@ -295,19 +313,22 @@ def check_feasi(L,W,grid_size,bins):
     
     return IsFeasible, PackingSol
 
+if __name__ == '__main__':
 
-#============
-# Define the platform dimensions and grid size
-L = 5
-W = 5
-grid_size = 1  # the size of the grid
+    #============
+    # Define the platform dimensions and grid size
+    L = 5
+    W = 5
+    grid_size = 3  # the size of the grid
 
-# Define bins as tuples of (length, width)
-bins = [
-    (4, 3),  # Bin 0
-    (2, 2),  # Bin 1
-    (3, 2),  # Bin 2
-]
+    # Define bins as tuples of (length, width)
+    bins = [
+        (4, 3),  # Bin 0
+        (2, 2),  # Bin 1
+        (3, 2),  # Bin 2
+    ]
 
-IsFeasi = check_feasi(L,W,grid_size,bins)
-print(IsFeasi)
+    IsFeasible, Solution = check_feasi(L, W, grid_size, bins)
+
+    print(IsFeasible)
+    print(Solution)
