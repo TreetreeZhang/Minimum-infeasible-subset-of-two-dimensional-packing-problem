@@ -9,6 +9,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import math
+import os
 from ortools.sat.python import cp_model
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -138,7 +139,7 @@ def get_Gamma_d(d, inner_fit_polygons):
     
     return Gamma_d
 
-def visualize_bin_packing(dots, bins, gamma, L, W, solver):
+def visualize_bin_packing(dots, bins, gamma, L, W, solver, save_bool= False):
     '''
     :param dots:
     :param bins:
@@ -194,7 +195,13 @@ def visualize_bin_packing(dots, bins, gamma, L, W, solver):
             ax.text(bottom_left_x + 0.1, bottom_left_y + bin_height / 2, f"Bin {status}", fontsize=8, color='black')
 
     plt.grid(True)
-    plt.show()
+    # plt.show()
+    if save_bool:
+        plt.draw()  # 确保图形已渲染
+        #plt.savefig("bin_packing_visualization.png")
+        plt.close(fig)
+        return fig
+
 
 def check_is_times(L, W, grid_size):
     errors = []
@@ -205,7 +212,8 @@ def check_is_times(L, W, grid_size):
     if errors:
         raise ValueError("\n".join(errors))
 
-def check_feasi(L, W, grid_size, bins):
+
+def check_feasi(L, W, grid_size, bins, save_path=None):
     '''
     :param L：托盘的长度
     :param W: 托盘的宽度
@@ -309,8 +317,28 @@ def check_feasi(L, W, grid_size, bins):
     IsFeasible = False
     if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
         IsFeasible = True
-        visualize_bin_packing(dots, bins, gamma, L, W, solver)
-    
+        # visualize_bin_packing(dots, bins, gamma, L, W, solver)
+        num_bins = len(bins)
+
+        fig = visualize_bin_packing(dots, bins, gamma, L, W, solver,save_bool=True)
+        #plt.show()
+
+        if save_path!=None:
+            image_folder_name = f"{L}*{W}-{grid_size}-{num_bins}"
+            image_path = os.path.join(save_path, image_folder_name)
+            os.makedirs(image_path, exist_ok=True)
+            # 获取当前文件夹中已有的图片数量
+            existing_files = os.listdir(image_path)
+            existing_images = [f for f in existing_files if f.endswith('.png')]
+            count = len(existing_images) + 1  # 从已有文件数量 + 1 开始编号
+            # 保存图片，并命名为 1.png, 2.png, ...
+            fig.savefig(os.path.join(image_path,f"{count}.png"))
+            #txt_name = save
+            with open(str(os.path.join(save_path,f"{L}*{W}-{grid_size}.txt")),'a') as f:
+
+                f.write(str(IsFeasible))
+                f.write(str(PackingSol))
+                f.write('\r')
     return IsFeasible, PackingSol
 
 if __name__ == '__main__':
@@ -319,7 +347,7 @@ if __name__ == '__main__':
     # Define the platform dimensions and grid size
     L = 5
     W = 5
-    grid_size = 3  # the size of the grid
+    grid_size = 1  # the size of the grid
 
     # Define bins as tuples of (length, width)
     bins = [
@@ -328,7 +356,7 @@ if __name__ == '__main__':
         (3, 2),  # Bin 2
     ]
 
-    IsFeasible, Solution = check_feasi(L, W, grid_size, bins)
+    IsFeasible, Solution = check_feasi(L, W, grid_size, bins,save_path='../')
 
     print(IsFeasible)
     print(Solution)
